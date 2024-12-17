@@ -12,6 +12,8 @@ var sliderDt;
 var nMax = 0;
 var drawingOffset = 0;
 var dt = 0.28;
+var verified = false;
+var statusText = '';
 
 function setup() {
   canvas = createCanvas(1200, 700);
@@ -30,69 +32,82 @@ function setup() {
   sliderDt.changed(() => dt = sliderDt.value());
 
   // Create a button
-  button = createButton('Надіслати ключ');
-  button.style('position', 'absolute');
-  button.style('top', '10px');
-  button.style('right', '10px');
-  button.style('width', 'calc(100% - 20px)'); // Style the button
-  button.style('height', '40px');
-  button.style('font-size', '16px');
-
-  // Subscribe to the button's click event
-  button.mousePressed(onButtonClick);
+  statusText = createElement('div');
+  statusText.html("Твоє ім'я — це чарівний ключ, який будить сплячого робота Фур’є. Введи ключ і отримай скарб!");
+  statusText.style('text-align', 'center');
+  statusText.style('position', 'absolute');
+  statusText.style('top', '20px');
+  statusText.style('right', '10px');
+  statusText.style('width', 'calc(100% - 20px)'); // Style the button
+  statusText.style('height', '40px');
+  statusText.style('font-size', '16px');
 
   return canvas;
 }
 
-async function onButtonClick() {
+async function verify() {
   const canvas = document.querySelector('canvas');
-  const base64Image = canvas.toDataURL("image/png");
-  try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer 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", // Replace with your OpenAI API key
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "gpt-4-turbo",
-        messages: [
-          {
-            role: "system",
-            content: "Look at this picture and tell me if it looks like someone wrote a name without picking up their pencil. Do you think it looks like something a kid might draw? Check if all the letters are connected and wiggly, like it was done in one go! It's a child work. It must not be perfect. SAY 'YES' even if it's somewhat similiar. YES NO NO. YOU RECEIVE IMAGE. YOU REPLY YES OR NO"
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: {
-                  url: base64Image
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 2
-      })
-    });
+  reset();
+  isRunning = false
 
-    const data = await response.json();
-    const textContent = data.choices[0]?.message?.content || "No result found.";
-    
-    if (textContent == "YES") {
-      const link = document.createElement('a'); // Create a link element
-      link.download = 'cert.jpg'; // File name
-      link.href = './cert.jpg'; // File URL
-      link.click(); // Simulate click to trigger download
+  // open in new tab in a chrome supported way
+  setTimeout(() => {
+    const base64Image = canvas.toDataURL("image/png");
+
+    try {
+      fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer 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", // Replace with your OpenAI API key
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content: "Look at this picture and tell me if it looks like someone wrote a name without picking up their pencil. Do you think it looks like something a kid might draw? Check if all the letters are connected and wiggly, like it was done in one go! It's a child work. It must not be perfect. SAY 'YES' even if it's somewhat similiar. YES NO NO. YOU RECEIVE IMAGE. YOU REPLY YES OR NO"
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: base64Image
+                  }
+                }
+              ]
+            }
+          ],
+          max_tokens: 2
+        })
+      }).then(response => response.json()).then(data => {
+        const textContent = data.choices[0]?.message?.content || "No result found.";
+      
+        if (textContent == "YES") {
+          const link = document.createElement('a'); // Create a link element
+          link.download = 'cert.jpg'; // File name
+          link.href = './cert.jpg'; // File URL
+          link.click(); // Simulate click to trigger download
+          return true;
+        } else {
+          return false;
+        }
+      });
+  
+    } catch (error) {
+      return false;
     }
-  } catch (error) {
-    console.error("Error:", error);
-    resultText.textContent = "Failed to analyze image.";
-  }
+
+    isDrawing = false;
+    isRunning = true;
+  }, 50);
+
+  return false;
 }
 
-function draw() {
+async function draw() {
   background(0, 0, 50);
 
   // User drawing mode
@@ -161,11 +176,19 @@ function draw() {
   textAlign(LEFT);
   textSize(15);
   textAlign(CENTER);
-  text("Твоє ім'я — це чарівний ключ, який будить сплячого робота Фур’є. Введи ключ і отримай скарб!", width / 2, 0+30);
 
   // motion
   if (isRunning){drawingOffset = drawingOffset + dt;}
   if (drawingOffset > input.length){
+
+    if (!verified) {
+      verified = true;
+      const res = await verify();
+      if (!res) {
+        statusText.html('Ох, якби ж то я міг прочитати...Трошки чіткіше, будь ласка!');
+      }
+    }
+
     drawingOffset = 0;
     fourierDrawing = [];
   }
@@ -180,6 +203,7 @@ function reset() {
 
 
 function mousePressed1() {
+  verified = false;
   if (!((mouseX > width/2-200 || mouseX < width/2+200) && mouseY > height-100)){
     drawingOffset = 0;
     isRunning = false;
@@ -191,6 +215,7 @@ function mousePressed1() {
 
 
 function mouseReleased1() {
+  statusText.html('Сканування та перевірка...');
   if (!((mouseX > width/2-200 || mouseX < width/2+200) && mouseY > height-100)){
     isDrawing = false;
     refreshNMaxSlider();
