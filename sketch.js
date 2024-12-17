@@ -12,10 +12,13 @@ var sliderDt;
 var nMax = 0;
 var drawingOffset = 0;
 var dt = 0.28;
-var verified = false;
+var verifying = false;
 var statusText = '';
+var secretCodeInput;
 
 function setup() {
+  secretCodeInput = createInput().style('width', '200px').attribute('placeholder', 'Введи код доступу').position(10, 20).style('z-index', 10000000);
+
   canvas = createCanvas(1200, 700);
   canvas.canvas.style.width = '100%';
   canvas.canvas.style.height = 'calc(100vh - 60px)';
@@ -41,32 +44,34 @@ function setup() {
   statusText.style('width', 'calc(100% - 20px)'); // Style the button
   statusText.style('height', '40px');
   statusText.style('font-size', '16px');
-
+  
   return canvas;
 }
 
 async function verify() {
+  verifying = true;
+
   const canvas = document.querySelector('canvas');
   reset();
   isRunning = false
 
   // open in new tab in a chrome supported way
-  setTimeout(() => {
+  setTimeout(async () => {
     const base64Image = canvas.toDataURL("image/png");
 
     try {
-      fetch("https://api.openai.com/v1/chat/completions", {
+      var response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": "Bearer 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", // Replace with your OpenAI API key
+          "Authorization": `Bearer ${secretCodeInput.value()}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "gpt-3.5-turbo",
+          model: "gpt-4-turbo",
           messages: [
             {
               role: "system",
-              content: "Look at this picture and tell me if it looks like someone wrote a name without picking up their pencil. Do you think it looks like something a kid might draw? Check if all the letters are connected and wiggly, like it was done in one go! It's a child work. It must not be perfect. SAY 'YES' even if it's somewhat similiar. YES NO NO. YOU RECEIVE IMAGE. YOU REPLY YES OR NO"
+              content: "Look at this picture and tell me if it looks like someone wrote a name without picking up their pencil. Do you think it looks like something a kid might draw? Like it was done in one go! It's a child work. It must not be perfect. SAY 'YES' even if it's somewhat similiar. But verify 90% of the letters are present. YES NO NO. YOU RECEIVE IMAGE. YOU REPLY YES OR NO"
             },
             {
               role: "user",
@@ -82,26 +87,31 @@ async function verify() {
           ],
           max_tokens: 2
         })
-      }).then(response => response.json()).then(data => {
-        const textContent = data.choices[0]?.message?.content || "No result found.";
-      
-        if (textContent == "YES") {
-          const link = document.createElement('a'); // Create a link element
-          link.download = 'cert.jpg'; // File name
-          link.href = './cert.jpg'; // File URL
-          link.click(); // Simulate click to trigger download
-          return true;
-        } else {
-          return false;
-        }
       });
+
+      const data = await response.json();
+      const textContent = data.choices[0]?.message?.content || "No result found.";
+
+      isDrawing = false;
+      isRunning = true;
+
+      debugger;
+      
+      if (textContent == "YES") {
+        const link = document.createElement('a'); // Create a link element
+        link.download = 'cert.jpg'; // File name
+        link.href = './cert.jpg'; // File URL
+        link.click(); // Simulate click to trigger download
+        return true;
+      } else {
+        statusText.html('Ох, якби ж то я міг прочитати...Трошки чіткіше, будь ласка!');
+        return false;
+      }
+
   
     } catch (error) {
       return false;
     }
-
-    isDrawing = false;
-    isRunning = true;
   }, 50);
 
   return false;
@@ -180,15 +190,7 @@ async function draw() {
   // motion
   if (isRunning){drawingOffset = drawingOffset + dt;}
   if (drawingOffset > input.length){
-
-    if (!verified) {
-      verified = true;
-      const res = await verify();
-      if (!res) {
-        statusText.html('Ох, якби ж то я міг прочитати...Трошки чіткіше, будь ласка!');
-      }
-    }
-
+    await verify();
     drawingOffset = 0;
     fourierDrawing = [];
   }
@@ -203,7 +205,7 @@ function reset() {
 
 
 function mousePressed1() {
-  verified = false;
+  verifying = false;
   if (!((mouseX > width/2-200 || mouseX < width/2+200) && mouseY > height-100)){
     drawingOffset = 0;
     isRunning = false;
