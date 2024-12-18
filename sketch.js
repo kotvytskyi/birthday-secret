@@ -9,15 +9,17 @@ var fourierDrawing = []
 
 var sliderNMax;
 var sliderDt;
-var nMax = 0;
+var nMax = 1000;
 var drawingOffset = 0;
-var dt = 0.28;
+var dt = 0.5;
 var verifying = false;
+var verified = false;
 var statusText = '';
 var secretCodeInput;
 
+
 function setup() {
-  secretCodeInput = createInput().style('width', '200px').attribute('placeholder', 'Введи код доступу').position(10, 20).style('z-index', 10000000);
+  secretCodeInput = createInput().style('width', '200px').attribute('placeholder', 'Введи код доступу sk-proj...').position(10, 20).style('z-index', 10000000);
 
   canvas = createCanvas(1200, 700);
   canvas.canvas.style.width = '100%';
@@ -36,7 +38,7 @@ function setup() {
 
   // Create a button
   statusText = createElement('div');
-  statusText.html("Твоє ім'я — це чарівний ключ, який будить сплячого робота Фур’є. Введи ключ і отримай скарб!");
+  statusText.html("Твоє ім'я — це чарівний ключ. Напиши його не відриваючи руки і отримай скарб!");
   statusText.style('text-align', 'center');
   statusText.style('position', 'absolute');
   statusText.style('top', '20px');
@@ -49,6 +51,10 @@ function setup() {
 }
 
 async function verify() {
+  if (verified) {
+    return true;
+  }
+
   verifying = true;
 
   const canvas = document.querySelector('canvas');
@@ -71,7 +77,7 @@ async function verify() {
           messages: [
             {
               role: "system",
-              content: "Look at this picture and tell me if it looks like someone wrote a name without picking up their pencil. Do you think it looks like something a kid might draw? Like it was done in one go! It's a child work. It must not be perfect. SAY 'YES' even if it's somewhat similiar. But verify 90% of the letters are present. YES NO NO. YOU RECEIVE IMAGE. YOU REPLY YES OR NO"
+              content: "Do you see the name 'MAKC' handwritten on the image? If you can say with 70% confidence - yes, then answer 'YES'. Othwerwise 'NO'. YOU REPLY YES OR NO"
             },
             {
               role: "user",
@@ -89,19 +95,25 @@ async function verify() {
         })
       });
 
+      this.verifying = false;
       const data = await response.json();
+      if (data.error) {
+        if (data.error.message.startsWith("You didn't provide an API key")) {
+          statusText.html("Я не почну розгадувати, поки ти не введеш код доступу...");
+          return false;
+        }
+      }
+
       const textContent = data.choices[0]?.message?.content || "No result found.";
 
       isDrawing = false;
       isRunning = true;
 
-      debugger;
-      
-      if (textContent == "YES") {
-        const link = document.createElement('a'); // Create a link element
-        link.download = 'cert.jpg'; // File name
-        link.href = './cert.jpg'; // File URL
-        link.click(); // Simulate click to trigger download
+      if (textContent.toLowerCase().startsWith("yes")) {
+        openPdf('./assets/cert1.pdf');
+        openPdf('./assets/cert2.pdf');
+        verified = true;
+        statusText.html('З Днем Народження!');
         return true;
       } else {
         statusText.html('Ох, якби ж то я міг прочитати...Трошки чіткіше, будь ласка!');
@@ -258,4 +270,15 @@ function drawCircles(center, amplitude, currentX, currentY){
   strokeWeight(2.5);
   line(currentX, currentY, center.x, center.y);
   strokeWeight(5);
+}
+
+function openPdf(path) {
+  var a = document.createElement('A');
+  var filePath = path;
+  a.href = filePath;
+  a.target = '_blank'
+  a.download = filePath.substr(filePath.lastIndexOf('/') + 1);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
