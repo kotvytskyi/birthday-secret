@@ -77,7 +77,7 @@ async function verify() {
           messages: [
             {
               role: "system",
-              content: "Do you see the name 'MAKC' handwritten on the image? If you can say with 70% confidence - yes, then answer 'YES'. Othwerwise 'NO'. YOU REPLY YES OR NO"
+              content: "Do you see the name 'DAN', 'Danilo', 'Danylo', 'Danya' handwritten on the image? If you can say with 70% confidence - yes, then answer 'YES'. Othwerwise 'NO'. YOU REPLY YES OR NO"
             },
             {
               role: "user",
